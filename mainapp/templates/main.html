@@ -1,0 +1,367 @@
+{% extends "base.html"%}
+{% block title %}
+    #OOTD:: Outfit Of ToDay
+{% endblock %}
+
+{% block head %}
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
+        integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
+        crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"
+        integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew=="
+        crossorigin=""></script>
+    {% load static %}
+    <script type="text/javascript" src="{% static 'weather.js' %}"></script>
+    {% load static %}
+    <link rel="stylesheet" type="text/css" href="{% static 'seoul_seg.css' %}">
+{% endblock%}
+
+{% block body %}
+    <section>
+        <select id="sido" name="sido" onchange="changeSelect()">
+            <option value="">시 선택</option>
+            <!-- {% for i in sido_list %}
+                <option>{{ i.sido_name }}</option>
+            {% endfor %} -->
+        </select>
+        <select id="city" name="city">
+            <option value="">시군구 선택</option>
+        </select>
+
+        <!--맵 띄우기-->
+        <article>
+            <div class="name_area"><h3>지역을 선택해 주세요</h3></div>
+            <div id="mapid"></div>
+        </article>
+
+        <article class="info">
+            <div class="num info">
+                <p>오늘의 날씨요정은,</p>
+                <p><span class="num">100</span>명</p>
+            </div>
+            <div class="num info">
+                <p>오늘의 #OOTD 정확도는,</p>
+                <p><span class="num">100</span>명</p>
+            </div>
+        </article>
+    </section>
+    <div style="clear:both;"></div>  <!--위치 오류 해결!-->
+
+    <script>
+    // 지도 뿌리기
+    var mymap = L.map('mapid', {
+            scrollWheelZoom: false,
+            dragging: false,
+            zoomControl: false,
+            doubleClickZoom: false
+        }).setView([35.85, 127.9], 7);
+    L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw', {
+        minZoom: 7,
+        attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, ' +
+            '<a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ' +
+            'Imagery <a href="https://www.mapbox.com/">Mapbox</a>',
+        id: 'mapbox.streets'
+    }).addTo(mymap);
+
+    let geojson;
+    let click_sido; // 클릭한 시도코드 넣어줄 변수
+    // 초기화면은 시도 영역 기준!
+    changeSido();
+
+    // 선택한 시군구만 컬러 강조 (마지막이 기본값)
+    function getColor(d) {
+        return (d > click_sido) && (d < (click_sido + 1000)) ? "#99e052" : "#d9d9d9";
+    }
+
+    // 구역컬러 스타일 지정
+    function style(feature) {
+        return {
+            fillColor: getColor(feature.properties.SIG_CD),
+            weight: 2,
+            opacity: 1,
+            color: 'white',
+            dashArray: '3',
+            fillOpacity: 0.7
+        };
+    }
+
+    // hover 시 경계선 강조
+    // function highlightFeature(e) {
+    //     var layer = e.target;
+    //     var lcolor = mymap.getZoom() < 8 ? '#b3b3b3' : '#73ae22';
+
+    //     layer.setStyle({
+    //         weight: 5,
+    //         color: lcolor,
+    //         dashArray: '',
+    //         fillOpacity: 0.7
+    //     });
+
+    //     if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+    //         layer.bringToFront();
+    //     }
+    // }
+
+    // hover 시 면적(시도)/경계선(시군구) 강조
+    function highlightFeature(e) {
+        var layer = e.target;
+        gggg = e.target;
+
+        if(mymap.getZoom() < 8)
+            layer.setStyle({
+                fillColor: "#99e052",
+                weight: 5,
+                color: '',
+                dashArray: '',
+                fillOpacity: 0.7
+            });
+        else {
+            var lcolor = mymap.getZoom() < 8 ? '#b3b3b3' : '#73ae22';
+            layer.setStyle({
+                weight: 5,
+                color: lcolor,
+                dashArray: '',
+                fillOpacity: 0.7
+            });
+        }
+
+        if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+            layer.bringToFront();
+        }
+    }
+
+    function resetHighlight(e) {
+        geojson.resetStyle(e.target);
+    }
+
+    // (시도 영역에서) 클릭 시 해당 영역 줌인
+    function zoomToFeature(e) {
+        if(mymap.getZoom() < 8) {
+            geojson.removeFrom(mymap);
+            mymap.fitBounds(e.target.getBounds());
+            
+            changeSigungu();
+        }
+
+    }
+
+    // 액션과 함수 매칭!
+    function onEachFeature(feature, layer) {
+        layer.on({
+            mouseover: highlightFeature,
+            mouseout: resetHighlight,
+            click: zoomToFeature
+        });
+    }
+
+
+    // 지도 확대 시 sido.geojson 제거
+    mymap.on("zoomend", function(){
+        if(mymap.getZoom() < 8) {
+            geojson.removeFrom(mymap);
+            changeSido();
+        }
+    });
+
+
+    // 지도 줌아웃 버튼 (홈버튼)
+    var home = { lat: 35.85, lng: 127.9, zoom: 7};
+
+    L.Control.zoomHome = L.Control.extend({
+        options: {
+            position: 'topright',
+            {% load static %}
+            zoomHomeText: "<img src='{% static "images/sun.png"%}' alt='Home' style='width:15px'>",
+            zoomHomeTitle: 'Zoom home'
+        },
+
+        onAdd: function (map) {
+            var controlName = 'gin-control-zoom',
+                container = L.DomUtil.create('div', controlName + ' leaflet-bar'),
+                options = this.options;
+
+            this._zoomHomeButton = this._createButton(options.zoomHomeText, options.zoomHomeTitle,
+            controlName + '-home', container, this._zoomHome);
+
+            return container;
+        },
+
+        onRemove: function (map) {
+            map.off('zoomend zoomlevelschange', this._updateDisabled, this);
+        },
+
+        _zoomHome: function (e) {
+            mymap.setView([home.lat, home.lng], home.zoom);
+        },
+
+        _createButton: function (html, title, className, container, fn) {
+            var link = L.DomUtil.create('a', className, container);
+            link.innerHTML = html;
+            link.href = '#';
+            link.title = title;
+
+            L.DomEvent.on(link, 'mousedown dblclick', L.DomEvent.stopPropagation)
+                .on(link, 'click', L.DomEvent.stop)
+                .on(link, 'click', fn, this)
+                .on(link, 'click', this._refocusOnMap, this);
+
+            return link;
+        },
+
+
+    });
+    // add the new control to the map
+    var zoomHome = new L.Control.zoomHome();
+    zoomHome.addTo(mymap);
+
+
+    var hover_sido;
+    var hover_city;
+    // 시도 기준 구획 나누기
+    function changeSido() {
+        var xhr = new XMLHttpRequest();
+        let geo_sido
+        xhr.onload =  function() {
+            if(xhr.status == 200) {
+                geo_sido = JSON.parse(xhr.responseText);
+                geojson = L.geoJson(geo_sido, {
+                    style: style,
+                    onEachFeature: onEachFeature
+                }).addTo(mymap);
+
+                // 해당 구역 시도코드 받아온당
+                geojson.on("click", function(layer){
+                    click_sido = Number(layer.layer.feature.properties.CTPRVN_CD)*1000;
+                });
+
+                // 마우스 갖다 대면 팝업창 뜬당 (별론듯)
+                // geojson.on("mouseover", function(layer){
+                //     aaa = layer;
+                //     this.bindPopup(layer.layer.feature.properties.CTP_KOR_NM, {closeButton:false}).openPopup(layer.latlng);
+                // });
+                // geojson.on("mouseout", function(layer){
+                //     this.closePopup();
+                // });
+                
+                // 상단 .name_area에 hover된 시도명 표시
+                geojson.on("mouseover", function(layer){
+                    hover_sido = layer.layer.feature.properties.CTP_KOR_NM;
+                    $(".name_area > h3").text(hover_sido);
+                });
+                geojson.on("mouseout", function(){
+                    $(".name_area > h3").text("지역을 선택해 주세요");
+                });
+            }
+        }
+
+        xhr.open("GET", "{{ sido_geo }}", true);
+        xhr.send();
+    }
+
+    // 시군구 기준 구획 나누기
+    function changeSigungu() {
+        var sigungu = new XMLHttpRequest();
+        sigungu.onload =  function() {
+            if(sigungu.status == 200) {
+                var data = JSON.parse(sigungu.responseText);
+                geojson = L.geoJson(data, {
+                    style: style,
+                    onEachFeature: onEachFeature
+                }).addTo(mymap);
+                
+                // 클릭 시 시군구 팝업창
+                geojson.addTo(mymap).bindPopup(function (layer) {
+                    var click_cd = Number(layer.feature.properties.SIG_CD);  // 클릭한 시군구코드
+                    var lat, lng; // 중심좌표 위경도
+                    
+                    // 클릭한 시군구의 중심좌표 로드
+                    {% for i in city_list %}
+                        if({{ i.city_id }} == click_cd) {
+                            lat = {{ i.city_lat }};
+                            lng = {{ i.city_lng }};
+                            console.log(lat + ", " + lng);
+                            L.marker([lat, lng]).addTo(mymap);
+                        }
+                    {% endfor %}
+                    
+                    if((click_cd > click_sido) && (click_cd < (click_sido + 1000))){
+                        $(".leaflet-popup.leaflet-zoom-animated").attr("style", "display:block");
+                        {% load static %}
+                        // icon : 날씨아이콘
+                        var icon = "<img src='{% static "images/sun.png" %}' style='width:15px'>"
+                        // msg : 팝업 내용 (+ icon)
+
+                        // 날씨정보 로드
+
+                        console.log(getWeather(37, 127));
+                        console.log(lat + ", " + lng);
+
+                        // var msg = "<br>20도<br>" + icon + "맑음<br><form><input type='submit' value='사진보기'></form>"
+                        var msg1 = `<table class="table table-striped">
+                            <tbody>
+                                <tr>
+                                    <th scope="row">지역</th>
+                                    <td>` + layer.feature.properties.SIG_KOR_NM + `</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">현재 날씨</th>
+                                    <td>` + icon + `맑음</td>
+                                </tr>
+                                <tr><th scope="row">현재 기온</th><td>20˚C</td></tr></tbody></table>`;
+                        {% load static %}
+                        var msg2 = "<img class='best_pic' src='{% static "images/sample_ootd.png" %}'>"
+                        var msg3 = '<a class="more" href="{% url 'feed' %}?city=' + click_cd + '">더보기</a>';
+                
+                        return "<div class='popup'>" + msg1 + msg2 + msg3 + "</div>";
+                    } else {
+                        $(".leaflet-popup.leaflet-zoom-animated").attr("style", "display:none");
+                        $(".name_area > h3").text("초록색 영역 내에서 클릭해 주세요");
+                        return "";
+                    }
+                });
+
+                // 상단 .name_area에 hover된 시군구명 추가 표시
+                geojson.on("mouseover", function(layer){
+                    var hover_cd = Number(layer.layer.feature.properties.SIG_CD);
+
+                    if((hover_cd > click_sido) && (hover_cd < (click_sido + 1000))) {
+                        hover_city = layer.layer.feature.properties.SIG_KOR_NM;
+                        if(hover_sido != hover_city)  // 세종시..
+                            $(".name_area > h3").append(" " + hover_city);
+                    }
+                });
+                geojson.on("mouseout", function(layer){
+                    $(".name_area > h3").text(hover_sido);
+                });
+                
+                // 더블클릭 시 줌아웃 (HOME버튼과 같은 기능)
+                geojson.on("dblclick", function(){
+                    mymap.setView([home.lat, home.lng], home.zoom);
+                });
+            }
+        }
+
+        sigungu.open("GET", "{{ sigungu_geo }}", true);
+        sigungu.send();
+    }
+
+
+    // select box
+    {% for i in sido_list %}
+        $("#sido").append("<option value=" + {{ i.sido_id }} + "> {{ i.sido_name }} </option>");
+    {% endfor %}
+
+    function changeSelect() {
+        document.getElementById("city").innerHTML = '<option value="">시군구 선택</option>';
+        var sidoSelect = document.getElementById("sido");
+        
+        if (sidoSelect != ""){
+            var sido_val = Number(sidoSelect.options[sidoSelect.selectedIndex].value);
+            {% for i in city_list %}
+                if({{ i.sido_id_id }} == sido_val)
+                    $("#city").append("<option vlaue={{ i.city_id }}>{{ i.city_name }}</option>");
+            {% endfor %}
+        }
+    }
+    </script>
+{% endblock %}

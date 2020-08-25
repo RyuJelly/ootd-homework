@@ -1,0 +1,65 @@
+{% extends "base.html"%}
+{% block title %}
+OOTD Feed
+{% endblock %}
+
+{% block head %}
+<!-- head에 들어갈 태그들(본인 페이지 전용 css, js 파일 등) 넣어주세여 -->
+<!-- 전체 폰트, 부트스트랩, 제이쿼리 링크는 base.html에 있으니까 안 써줘도 돼요 -->
+<!-- 예시(아래) -->
+<!--{% load static %}-->
+<!--<link rel="stylesheet" type="text/css" href="{% static 'seoul_seg.css' %}"> &ndash;&gt;-->
+    <style>
+        div.ootd{
+            margin: 5px;
+            border: 1px solid #ccc;
+            float: left;
+            width: 180px;
+        }
+        div.ootd:hover {
+            border: 1px solid #777;
+        }
+
+        div.ootd img {
+          width: 100%;
+          height: auto;
+        }
+
+    </style>
+{% endblock%}
+
+{% block body %}
+<!-- 본문(페이지 body 안에 들어갈 내용)은 여기에! -->
+<!--페이지 공통으로 들어갈 상단탭(?) 부분은 여기선 생략하고 나중에 base.html에 만들기로 해여-->
+    <h1>OOTD Feed</h1>
+    <button onclick="location.href='{% url "main" %}'">Back</button></div>
+    <hr>
+    <p>today</p>
+
+    <form method="POST" action="">
+        {% csrf_token %}
+        <select name="sort" onchange="this.form.submit()">
+            <option value="">정렬방법을 선택해주세요:</option>
+            <option value="image_cnt">조회순</option>
+            <option value="image_like">좋아요순</option>
+            <option value="image_date">최신순</option>
+        </select>
+    </form>
+
+    {% for odata in olist %}
+        <div class="ootd" onclick="location.href={% url 'photo' %}+{{ odata.id }}">
+            <div>{{ odata.image_name }}</div>
+            <img src ="{{ odata.image_file.url }}" style='width:150px; height:150px'>
+            <div>{{ odata.image_date }}</div>
+        </div>
+    {% endfor %}
+
+    <br>
+    <hr>
+    <div id="showallbtn"><button onclick="">Show past Feed</button></div>
+    <div id="writebtn"><button onclick="location.href='{% url "upload" %}'">Post my OOTD</button></div>
+
+    <script>
+
+    </script>
+{% endblock %}

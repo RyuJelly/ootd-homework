@@ -1,0 +1,40 @@
+#mapid {
+    width: 100%;
+    height: 670px;
+    background: white;
+}
+
+.leaflet-tile-container {
+    display: none;
+}
+
+td, th { width: 250px; text-align: center; }
+article.info {
+    display: block;
+}
+.num.info {
+    display: inline-block;
+    width: 50%;
+    float: left;
+    text-align: center;
+}
+span.num { font-size: 35px; }
+
+div.popup {
+    width: 300px;
+    text-align: center;
+}
+
+img.best_pic {
+    width: 180px;
+    height: 180px;
+}
+
+a.more { 
+    float: right; 
+    margin: 80px 20px 80px 10px;
+}
+
+.name_area {
+    text-align: center;
+}

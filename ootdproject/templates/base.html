@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+    <title>{% block title %}{% endblock %}</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
+    <script src="http://code.jquery.com/jquery-3.5.1.min.js"></script>
+    {% load static %}
+    <style>
+      footer {
+          width: 100%;
+          height: 50px;
+          background-color: grey;
+          text-align: center;
+          display: block;
+      }
+      header { height: 65px; }
+    </style>
+    {% block head %}{% endblock%}
+</head>
+<body>
+    <header>
+        <nav class="navbar navbar-expand-sm bg-dark navbar-dark">
+          <a class="navbar-brand" href="seoul_seg.html">
+              <!-- <img src="sun.png" width="30" height="30" alt="" loading="lazy"> -->
+              #OOTD
+          </a>
+          <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#collapsibleNavbar">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+          <div class="collapse navbar-collapse" id="collapsibleNavbar">
+            <ul class="navbar-nav">
+              <li class="nav-item">
+                <a class="nav-link" href="#">HOME</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#">OOTD</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#">UPLOAD</a>
+              </li>
+            </ul>
+          </div>
+        </nav>
+    </header>
+
+    {% block body %}{% endblock %}
+
+    <footer>ⓒ OOTD-Weather corp.</footer>
+</body>
+</html>
